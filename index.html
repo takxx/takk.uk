@@ -6,7 +6,7 @@
 	<title>takk.uk</title>
 
 	<script>
-		const shortcode = window.location.href.substring(url.indexOf('#') + 1);
+		const shortcode = window.location.href.substring(window.location.href.indexOf('#') + 1);
 		console.log (shortcode);
 		if (shortcode === "tw")
 			{window.location.replace("https://takwing.com");}
