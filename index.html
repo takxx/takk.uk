@@ -1,3 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv='refresh' content='0; URL=https://icloud.com/'>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Embed YouTube Video</title>
+
+	<script>
+		const shortcode = hashPart.substring (1);
+		if (shortcode == "tw")
+			{window.location.replace("https://takwing.com");}
+	</script>
+
+	<style>
+	  :root{--bg:#070707;--grid:#0f0f0f;--snake:#9be564;--head:#4caf50;--food:#ff5c5c;--ui:#cfcfcf}
+	  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto;background:var(--bg);color:var(--ui);-webkit-font-smoothing:antialiased}
+	  @media (prefers-color-scheme: dark){/* ensure dark mode */:root{--bg:#070707}}
+	  @media (prefers-color-scheme: light){/* override to dark even if system set to light */html{color-scheme: dark}} 
+	  .wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px;background:linear-gradient(180deg,#070707 0%,#0f0f0f 100%);color:var(--ui)}
+	  canvas{background:linear-gradient(45deg,rgba(255,255,255,0.02),transparent);box-shadow:0 6px 30px rgba(0,0,0,0.7);border-radius:8px}
+	  .hud{display:flex;gap:12px;align-items:center}
+	  button{background:#121212;border:1px solid #222;color:var(--ui);padding:8px 12px;border-radius:6px;cursor:pointer}
+	  .controls{display:flex;gap:8px;flex-wrap:wrap}
+	  .dir-btn{width:52px;height:52px;display:grid;place-items:center;background:#0f0f0f;border-radius:8px;border:1px solid #222;color:var(--ui)}
+	  .small{font-size:13px;color:#9aa}
+	</style>
 </head>
+
+<body>
+<div class="wrap">
+  <h2>Nokia Snake (HTML5)</h2>
+  <div class="hud">
+    <div>Score: <span id="score">0</span></div>
+    <div>Speed: <span id="speed">8</span></div>
+    <button id="start">Start / Restart</button>
+    <button id="pause">Pause</button>
+  </div>
+
+  <canvas id="c" width="560" height="420"></canvas>
+
+  <div class="controls small" style="margin-top:8px;">
+    Mobile controls:
+    <div style="display:grid;grid-template-columns:52px 52px 52px;gap:8px;margin-left:8px">
+      <div></div><button class="dir-btn" data-dir="up">▲</button><div></div>
+      <button class="dir-btn" data-dir="left">◀</button><button class="dir-btn" data-dir="down">▼</button><button class="dir-btn" data-dir="right">▶</button>
+    </div>
+  </div>
+
+  <div class="small" style="margin-top:6px;color:#9aa">Use arrow keys or WASD. Eat food to grow. Collide with walls or yourself to lose.</div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const startBtn = document.getElementById('start');
+  const pauseBtn = document.getElementById('pause');
+  const scoreEl = document.getElementById('score');
+  const speedEl = document.getElementById('speed');
+
+  const CELL = 20;                      // size of a cell in px
+  const COLS = Math.floor(canvas.width / CELL);
+  const ROWS = Math.floor(canvas.height / CELL);
+
+  let snake, dir, nextDir, food, score, speed, running, tickTimer;
+
+  function reset() {
+    const midX = Math.floor(COLS/2);
+    const midY = Math.floor(ROWS/2);
+    snake = [{x:midX, y:midY}, {x:midX-1,y:midY}, {x:midX-2,y:midY}];
+    dir = {x:1,y:0}; // moving right
+    nextDir = dir;
+    placeFood();
+    score = 0;
+    speed = 8; // cells per second (base)
+    running = false;
+    updateHUD();
+    draw();
+  }
+
+  function placeFood() {
+    const occupied = new Set(snake.map(p => p.x+','+p.y));
+    let fx, fy, k=0;
+    do {
+      fx = Math.floor(Math.random()*COLS);
+      fy = Math.floor(Math.random()*ROWS);
+      if (++k>10000) break;
+    } while (occupied.has(fx+','+fy));
+    food = {x:fx,y:fy};
+  }
+
+  function updateHUD() {
+    scoreEl.textContent = score;
+    speedEl.textContent = speed;
+  }
+
+  function start() {
+    if (tickTimer) clearInterval(tickTimer);
+    running = true;
+    tickTimer = setInterval(tick, 1000 / speed);
+  }
+
+  function pause() {
+    running = false;
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  }
+
+  function setSpeed(val) {
+    speed = Math.max(2, Math.min(25, Math.round(val)));
+    if (running) {
+      clearInterval(tickTimer);
+      tickTimer = setInterval(tick, 1000 / speed);
+    }
+    updateHUD();
+  }
+
+  function tick() {
+    // commit direction change
+    if ((nextDir.x !== -dir.x || nextDir.y !== -dir.y)) {
+      dir = nextDir;
+    }
+
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+    // wrap around edges (classic Nokia didn't wrap — to match that, replace with lose-on-wall logic)
+    // Uncomment below to wrap:
+    // head.x = (head.x + COLS) % COLS;
+    // head.y = (head.y + ROWS) % ROWS;
+
+    // lose if hit wall
+    if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+      gameOver();
+      return;
+    }
+
+    // lose if hit self
+    if (snake.some(s => s.x === head.x && s.y === head.y)) {
+      gameOver();
+      return;
+    }
+
+    snake.unshift(head);
+
+    // eat food?
+    if (head.x === food.x && head.y === food.y) {
+      score += 10;
+      // slightly increase speed every few foods
+      if (score % 50 === 0) setSpeed(speed + 1);
+      placeFood();
+    } else {
+      snake.pop();
+    }
+
+    draw();
+    updateHUD();
+  }
+
+  function gameOver() {
+    pause();
+    // simple flash effect
+    const old = ctx.fillStyle;
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Game Over — Press Start', canvas.width/2, canvas.height/2);
+    ctx.fillStyle = old;
+  }
+
+  function drawGrid() {
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = '#0f0f0f';
+    ctx.lineWidth = 1;
+    for (let x=0;x<=COLS;x++){
+      ctx.beginPath();
+      ctx.moveTo(x*CELL,0);
+      ctx.lineTo(x*CELL,ROWS*CELL);
+      ctx.stroke();
+    }
+    for (let y=0;y<=ROWS;y++){
+      ctx.beginPath();
+      ctx.moveTo(0,y*CELL);
+      ctx.lineTo(COLS*CELL,y*CELL);
+      ctx.stroke();
+    }
+  }
+
+  function drawCell(x,y,fillStyle,strokeStyle) {
+    ctx.fillStyle = fillStyle;
+    ctx.fillRect(x*CELL+1, y*CELL+1, CELL-2, CELL-2);
+    if (strokeStyle){
+      ctx.strokeStyle = strokeStyle;
+      ctx.strokeRect(x*CELL+1, y*CELL+1, CELL-2, CELL-2);
+    }
+  }
+
+  function draw() {
+    drawGrid();
+
+    // food
+    drawCell(food.x, food.y, getComputedStyle(document.documentElement).getPropertyValue('--food').trim() || '#ff5c5c');
+
+    // snake
+    for (let i=snake.length-1;i>=0;i--){
+      const p = snake[i];
+      if (i===0) drawCell(p.x,p.y,'#4caf50','#2f7a2f');
+      else drawCell(p.x,p.y,'#9be564');
+    }
+  }
+
+  // Input handlers
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') nextDir = {x:0,y:-1};
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') nextDir = {x:0,y:1};
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') nextDir = {x:-1,y:0};
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') nextDir = {x:1,y:0};
+    if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
+  });
+
+  document.querySelectorAll('.dir-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const d = b.dataset.dir;
+      if (d === 'up') nextDir = {x:0,y:-1};
+      if (d === 'down') nextDir = {x:0,y:1};
+      if (d === 'left') nextDir = {x:-1,y:0};
+      if (d === 'right') nextDir = {x:1,y:0};
+    });
+  });
+
+  // Buttons
+  startBtn.addEventListener('click', () => { reset(); start(); });
+  pauseBtn.addEventListener('click', () => { running ? pause() : start(); });
+
+  // Touch swipe support (simple)
+  let touchStart = null;
+  canvas.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    touchStart = {x:t.clientX, y:t.clientY};
+  }, {passive:true});
+  canvas.addEventListener('touchend', e => {
+    if (!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    if (Math.abs(dx) > Math.abs(dy)){
+      nextDir = dx>0 ? {x:1,y:0} : {x:-1,y:0};
+    } else {
+      nextDir = dy>0 ? {x:0,y:1} : {x:0,y:-1};
+    }
+    touchStart = null;
+  });
+
+  // initialize
+  reset();
+})();
+</script>
+</body>
+</html>
