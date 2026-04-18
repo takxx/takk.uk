@@ -6,7 +6,7 @@
 	<title>takk.uk</title>
 
 	<script>
-		const shortcode = url.substring(url.indexOf('/') + 1);
+		const shortcode = url.substring(url.indexOf('#') + 1);
 		if (shortcode === "tw")
 			{window.location.replace("https://takwing.com");}
 	</script>
@@ -36,7 +36,6 @@
 
 <body>
 	<div class="wrap">
-	  <h2>takk.uk</h2>
 	  <div class="hud">
 		<div>Score: <span id="score">0</span></div>
 		<div>Speed: <span id="speed">8</span></div>
